@@ -6,40 +6,36 @@ from datetime import datetime
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 from adhan import prayertimes
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # কনফিগারেশন
 BOT_TOKEN = "8275711431:AAHETDjkmWxTSHI1lYsmePSYvR9gp0OIMNU"
 COORDS = (23.8103, 90.4125)  # ঢাকা
 
-# ইউজার ম্যানেজমেন্ট (সব ইউজারকে রিমাইন্ডার দেওয়ার জন্য)
-def save_user(chat_id):
-    try:
-        users = get_all_users()
-        if str(chat_id) not in users:
-            with open('users.txt', 'a') as f:
-                f.write(f"{chat_id}\n")
-    except: pass
-
-def get_all_users():
-    try:
-        with open('users.txt', 'r') as f:
-            return set(line.strip() for line in f)
-    except: return set()
-
-# হাদিস লোড
+# হাদিস লোড করার ফাংশন
 def load_hadiths():
-    with open('hadith.json', 'r', encoding='utf-8') as f:
-        return json.load(f)
+    try:
+        with open('hadith.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except:
+        return[{"text": "হাদিস ফাইলটি পাওয়া যাচ্ছে না।", "reference": "N/A"}]
 
-# নামাজের সময় চেক করা ও অটো রিমাইন্ডার
-async def prayer_reminder_job(context: ContextTypes.DEFAULT_TYPE):
-    times = prayertimes(COORDS, datetime.now(), prayertimes.methods['ISNA'])
-    # এখানে লজিক অনুযায়ী সময় মিললে মেসেজ যাবে
-    # বিস্তারিত রিমাইন্ডার লজিক এখানে যোগ করা যায়
-    pass
+# ফাংশন: হাদিস পাঠানো
+async def send_hadith(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    hadiths = load_hadiths()
+    h = random.choice(hadiths)
+    await update.message.reply_text(f"📖 হাদিস: {h['text']}\n\n📚 সূত্র: {h['reference']}")
 
-# নামাজ কতক্ষণ বাকি
+# ফাংশন: আয়াত পাঠানো
+async def send_quran(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rand_ayah = random.randint(1, 6236)
+    try:
+        response = requests.get(f"https://api.alquran.cloud/v1/ayah/{rand_ayah}/editions/bn.bengali").json()
+        data = response['data']
+        await update.message.reply_text(f"✨ আয়াত: {data['text']}\n\n📖 সূরা: {data['surah']['englishName']} ({data['numberInSurah']})")
+    except:
+        await update.message.reply_text("দুঃখিত, বর্তমানে আয়াত লোড করা যাচ্ছে না।")
+
+# ফাংশন: নামাজের সময়
 async def time_until_prayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     times = prayertimes(COORDS, datetime.now(), prayertimes.methods['ISNA'])
     now = datetime.now()
@@ -59,34 +55,30 @@ async def time_until_prayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("আজকের সব নামাজের সময় শেষ।")
 
-# ইসলামিক হ্যান্ডলার
-async def islamic_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    chat_id = update.effective_chat.id
-    save_user(chat_id) # ইউজার সেভ করা
+# মেইন হ্যান্ডলার: যা টেক্সট মেসেজ চেক করবে
+async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.lower()
     
     if "হাদিস" in text:
-        hadiths = load_hadiths()
-        h = random.choice(hadiths)
-        await update.message.reply_text(f"📖 হাদিস: {h['text']}\n\n📚 সূত্র: {h['reference']}")
-        
+        await send_hadith(update, context)
     elif "আয়াত" in text or "কুরআন" in text:
-        rand_ayah = random.randint(1, 6236)
-        response = requests.get(f"https://api.alquran.cloud/v1/ayah/{rand_ayah}/editions/bn.bengali").json()
-        data = response['data']
-        await update.message.reply_text(f"✨ আয়াত: {data['text']}\n\n📖 সূরা: {data['surah']['englishName']} ({data['numberInSurah']})")
-    
+        await send_quran(update, context)
     elif "সময়" in text or "নামাজ" in text:
         await time_until_prayer(update, context)
     else:
-        await update.message.reply_text("আমি ইসলামিক অ্যাসিস্ট্যান্ট। আপনি আমাকে হাদিস, আয়াত বা নামাজের সময় সম্পর্কে জিজ্ঞাসা করতে পারেন।")
+        await update.message.reply_text("আমি ইসলামিক অ্যাসিস্ট্যান্ট! আপনি আমাকে কমান্ড দিতে পারেন বা হাদিস, আয়াত বা নামাজের সময় সম্পর্কে লিখতে পারেন।")
 
 if __name__ == '__main__':
     application = ApplicationBuilder().token(BOT_TOKEN).build()
     
-    # হ্যান্ডলার
-    application.add_handler(CommandHandler("start", lambda u, c: (save_user(u.effective_chat.id), u.message.reply_text("আসসালামু আলাইকুম! আমি আপনার ইসলামিক অ্যাসিস্ট্যান্ট।"))))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, islamic_handler))
+    # কমান্ড হ্যান্ডলার (Command /)
+    application.add_handler(CommandHandler("start", lambda u, c: u.message.reply_text("আসসালামু আলাইকুম! আমি আপনার ইসলামিক অ্যাসিস্ট্যান্ট।\nকমান্ড: /hadith, /quran, /time")))
+    application.add_handler(CommandHandler("hadith", send_hadith))
+    application.add_handler(CommandHandler("quran", send_quran))
+    application.add_handler(CommandHandler("time", time_until_prayer))
+    
+    # মেসেজ হ্যান্ডলার (Text Message)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
     
     print("Bot is running...")
     application.run_polling()
