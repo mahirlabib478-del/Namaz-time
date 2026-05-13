@@ -431,7 +431,8 @@ if __name__ == "__main__":
         .token(BOT_TOKEN)
         .build()
     )
-Thread(target=run_web).start()
+    
+    Thread(target=run_web).start()
     # Commands
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("hadith", send_hadith))
