@@ -2,3 +2,8 @@ python-telegram-bot>=21.0
 requests
 flask
 gunicorn
+python-telegram-bot
+requests
+apscheduler
+flask
+gunicorn
