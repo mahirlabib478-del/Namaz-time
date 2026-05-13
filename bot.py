@@ -5,7 +5,8 @@ import requests
 from datetime import datetime
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
-from adhan import prayertimes
+from adhan import PrayerTimes
+from adhan.methods import ISNA
 
 # কনফিগারেশন
 BOT_TOKEN = "8275711431:AAHETDjkmWxTSHI1lYsmePSYvR9gp0OIMNU"
@@ -35,22 +36,40 @@ async def send_quran(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         await update.message.reply_text("দুঃখিত, বর্তমানে আয়াত লোড করা যাচ্ছে না।")
 
-# ফাংশন: নামাজের সময়
+
+# নামাজের সময় পাওয়ার ফাংশন (আপডেট করা)
 async def time_until_prayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    times = prayertimes(COORDS, datetime.now(), prayertimes.methods['ISNA'])
+    # কোঅর্ডিনেটস এবং মেথড সেটআপ
+    coords = (23.8103, 90.4125)
+    params = ISNA
+    
+    # PrayerTimes ক্লাস ব্যবহার করে সময় বের করা
+    times = PrayerTimes(coords, datetime.now(), params)
     now = datetime.now()
-    prayer_list = {'ফজর': times['fajr'], 'যোহর': times['dhuhr'], 'আসর': times['asr'], 'মাগরিব': times['maghrib'], 'ইশা': times['isha']}
+    
+    # নতুন লাইব্রেরিতে সময়গুলো ডট (.) দিয়ে অ্যাক্সেস করতে হয়
+    prayer_list = {
+        'ফজর': times.fajr, 
+        'যোহর': times.dhuhr, 
+        'আসর': times.asr, 
+        'মাগরিব': times.maghrib, 
+        'ইশা': times.isha
+    }
     
     next_prayer = None
     for name, time in prayer_list.items():
+        # time এখানে datetime অবজেক্ট, তাই সরাসরি তুলনা করা যাবে
         if time > now:
             next_prayer = (name, time)
             break
     
     if next_prayer:
         diff = next_prayer[1] - now
-        hours, remainder = divmod(diff.seconds, 3600)
-        minutes = remainder // 60
+        # diff.total_seconds() ব্যবহার করা বেশি নিরাপদ
+        total_seconds = int(diff.total_seconds())
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        
         await update.message.reply_text(f"⏳ পরবর্তী {next_prayer[0]} নামাজের সময় হতে আর {hours} ঘণ্টা {minutes} মিনিট বাকি।")
     else:
         await update.message.reply_text("আজকের সব নামাজের সময় শেষ।")
