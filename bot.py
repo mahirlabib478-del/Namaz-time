@@ -3,6 +3,9 @@ import json
 import random
 import logging
 import requests
+from flask import Flask
+from threading import Thread
+import os
 
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -29,7 +32,21 @@ from telegram.ext import (
 BOT_TOKEN = "8275711431:AAGcsGnUqgEo9AAHTtht_68eky-6313DBOE"
 
 TIMEZONE = ZoneInfo("Asia/Dhaka")
+# =========================
+# FLASK SERVER
+# =========================
 
+flask_app = Flask(__name__)
+
+@flask_app.route("/")
+def home():
+    return "Salat Reminder Bot Running!"
+
+
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    flask_app.run(host="0.0.0.0", port=port)
+    
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
     level=logging.INFO
@@ -414,7 +431,7 @@ if __name__ == "__main__":
         .token(BOT_TOKEN)
         .build()
     )
-
+Thread(target=run_web).start()
     # Commands
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("hadith", send_hadith))
