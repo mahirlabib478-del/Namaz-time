@@ -7,7 +7,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Messa
 from adhan import prayertimes
 
 # কনফিগারেশন
-BOT_TOKEN = "YOUR_TOKEN"
+BOT_TOKEN = "8275711431:AAHETDjkmWxTSHI1lYsmePSYvR9gp0OIMNU"
 COORDS = (23.8103, 90.4125)  # ঢাকা
 
 # হাদিস লোড করার ফাংশন
