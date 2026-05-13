@@ -26,7 +26,7 @@ from telegram.ext import (
 # CONFIG
 # =========================
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("8275711431:AAHETDjkmWxTSHI1lYsmePSYvR9gp0OIMNU")
 
 TIMEZONE = ZoneInfo("Asia/Dhaka")
 
