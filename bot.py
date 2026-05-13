@@ -28,7 +28,7 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
-
+TRACK_FILE = "tracking.json"
 BOT_TOKEN = "8275711431:AAGcsGnUqgEo9AAHTtht_68eky-6313DBOE"
 
 TIMEZONE = ZoneInfo("Asia/Dhaka")
@@ -55,6 +55,17 @@ logging.basicConfig(
 # =========================
 # USER STORAGE
 # =========================
+def load_tracking():
+    try:
+        with open(TRACK_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return {}
+        
+def save_tracking(data):
+    with open(TRACK_FILE, "w") as f:
+        json.dump(data, f, indent=4)    
+
 
 USERS_FILE = "users.txt"
 
@@ -320,7 +331,7 @@ async def prayer_reminder_job(context: ContextTypes.DEFAULT_TYPE):
             # follow-up after 20 mins
             context.job_queue.run_once(
                 follow_up_job,
-                when=1200,
+                when=1800,
                 data=bn
             )
 
@@ -353,22 +364,39 @@ async def follow_up_job(context: ContextTypes.DEFAULT_TYPE):
 # BUTTON HANDLER
 # =========================
 
-async def button_handler(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = update.callback_query
-
     await query.answer()
 
     if query.data.startswith("done_"):
 
+        prayer_name = query.data.replace("done_", "")
+
+        user_id = str(query.from_user.id)
+        today = datetime.now(TIMEZONE).strftime("%Y-%m-%d")
+
+        # load existing data
+        data = load_tracking()
+
+        # user init
+        if user_id not in data:
+            data[user_id] = {}
+
+        # date init
+        if today not in data[user_id]:
+            data[user_id][today] = {}
+
+        # save prayer as completed
+        data[user_id][today][prayer_name] = True
+
+        # write back to file
+        save_tracking(data)
+
         await query.edit_message_text(
             "মাশাআল্লাহ 🤍\n"
-            "আল্লাহ আপনার নামাজ কবুল করুন।"
+            f"{prayer_name} নামাজ রেকর্ড করা হয়েছে।"
         )
-
 
 # =========================
 # START
@@ -376,7 +404,22 @@ async def button_handler(
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
+    # user save (old system)
     save_user(update.effective_chat.id)
+
+    # 🆕 tracking system init (optional but good)
+    user_id = str(update.effective_chat.id)
+    today = datetime.now(TIMEZONE).strftime("%Y-%m-%d")
+
+    data = load_tracking()
+
+    if user_id not in data:
+        data[user_id] = {}
+
+    if today not in data[user_id]:
+        data[user_id][today] = {}
+
+    save_tracking(data)
 
     msg = (
         "🕌 আসসালামু আলাইকুম\n\n"
@@ -385,11 +428,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/hadith - হাদিস\n"
         "/ayah - কুরআনের আয়াত\n"
         "/time - নামাজের সময়\n"
-        "/next - পরবর্তী নামাজ"
+        "/next - পরবর্তী নামাজ\n"
+        "/report - আজকের নামাজ রিপোর্ট 📊"
     )
 
     await update.message.reply_text(msg)
-
 
 # =========================
 # TEXT HANDLER
@@ -434,11 +477,13 @@ if __name__ == "__main__":
     
     Thread(target=run_web).start()
     # Commands
+    
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("hadith", send_hadith))
     app.add_handler(CommandHandler("ayah", send_quran))
     app.add_handler(CommandHandler("time", prayer_times))
     app.add_handler(CommandHandler("next", next_prayer))
+    app.add_handler(CommandHandler("report", report))
 
     # Buttons
     app.add_handler(CallbackQueryHandler(button_handler))
