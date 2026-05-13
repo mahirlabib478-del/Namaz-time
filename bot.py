@@ -2,6 +2,7 @@ import json
 import random
 import requests
 import logging
+from datetime import datetime
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -10,193 +11,94 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
-
-# =========================
-# CONFIG
-# =========================
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 BOT_TOKEN = "8275711431:AAHETDjkmWxTSHI1lYsmePSYvR9gp0OIMNU"
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
-)
+logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 
-# =========================
-# LOAD HADITH
-# =========================
+# ইউজার আইডি সেভ করার ফাংশন
+def save_user(chat_id):
+    try:
+        users = get_all_users()
+        if str(chat_id) not in users:
+            with open("users.txt", "a") as f:
+                f.write(f"{chat_id}\n")
+    except: pass
+
+def get_all_users():
+    try:
+        with open("users.txt", "r") as f:
+            return set(line.strip() for line in f)
+    except: return set()
+
+# নামাজের সময় অটোমেটিক রিমাইন্ডার
+async def prayer_reminder_job(context: ContextTypes.DEFAULT_TYPE):
+    try:
+        timings = get_timings()
+        now = datetime.now().strftime("%H:%M")
+        prayer_names = {'Fajr': 'ফজর', 'Dhuhr': 'যোহর', 'Asr': 'আসর', 'Maghrib': 'মাগরিব', 'Isha': 'ইশা'}
+        
+        for p_en, p_bn in prayer_names.items():
+            if timings[p_en] == now:
+                users = get_all_users()
+                for chat_id in users:
+                    try:
+                        await context.bot.send_message(chat_id=chat_id, text=f"আসসালামু আলাইকুম! এখন {p_bn}-এর নামাজের সময়। 🕋")
+                    except: pass
+    except: pass
+
+# বাকি ফাংশনসমূহ
+def get_timings():
+    url = "https://api.aladhan.com/v1/timingsByCity?city=Dhaka&country=Bangladesh&method=2"
+    return requests.get(url).json()["data"]["timings"]
 
 def load_hadiths():
     try:
         with open("hadith.json", "r", encoding="utf-8") as f:
             return json.load(f)
-    except:
-        return [
-            {
-                "text": "হাদিস ফাইল পাওয়া যায়নি।",
-                "reference": "N/A"
-            }
-        ]
-
-# =========================
-# START COMMAND
-# =========================
+    except: return[{"text": "হাদিস লোড করা সম্ভব হয়নি।", "reference": "N/A"}]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    text = (
-        "🌸 আসসালামু আলাইকুম 🌸\n\n"
-        "আমি আপনার ইসলামিক অ্যাসিস্ট্যান্ট 🤖\n\n"
-        "📌 কমান্ডসমূহ:\n"
-        "/hadith - হাদিস\n"
-        "/quran - কুরআনের আয়াত\n"
-        "/time - নামাজের সময়"
-    )
-
-    await update.message.reply_text(text)
-
-# =========================
-# HADITH
-# =========================
+    save_user(update.effective_chat.id)
+    await update.message.reply_text("আসসালামু আলাইকুম! আমি আপনার ইসলামিক অ্যাসিস্ট্যান্ট। আমি আপনাকে নিয়মিত নামাজের রিমাইন্ডার দেব।")
 
 async def send_hadith(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    hadiths = load_hadiths()
-
-    h = random.choice(hadiths)
-
-    msg = (
-        f"📖 হাদিস:\n\n"
-        f"{h['text']}\n\n"
-        f"📚 সূত্র: {h['reference']}"
-    )
-
-    await update.message.reply_text(msg)
-
-# =========================
-# QURAN AYAH
-# =========================
+    h = random.choice(load_hadiths())
+    await update.message.reply_text(f"📖 হাদিস: {h['text']}\n\n📚 সূত্র: {h['reference']}")
 
 async def send_quran(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    rand_ayah = random.randint(1, 6236)
-
     try:
-
-        response = requests.get(
-            f"https://api.alquran.cloud/v1/ayah/{rand_ayah}/bn.bengali"
-        ).json()
-
-        data = response["data"]
-
-        text = data["text"]
-        surah = data["surah"]["englishName"]
-        number = data["numberInSurah"]
-
-        msg = (
-            f"✨ কুরআনের আয়াত:\n\n"
-            f"{text}\n\n"
-            f"📖 সূরা: {surah}\n"
-            f"🔢 আয়াত নম্বর: {number}"
-        )
-
-        await update.message.reply_text(msg)
-
-    except Exception as e:
-
-        print(e)
-
-        await update.message.reply_text(
-            "দুঃখিত, আয়াত লোড করা যাচ্ছে না।"
-        )
-
-# =========================
-# PRAYER TIME
-# =========================
+        res = requests.get(f"https://api.alquran.cloud/v1/ayah/{random.randint(1, 6236)}/editions/bn.bengali").json()
+        data = res["data"]
+        await update.message.reply_text(f"✨ আয়াত: {data['text']}\n\n📖 সূরা: {data['surah']['englishName']} ({data['numberInSurah']})")
+    except: await update.message.reply_text("আয়াত লোড করা যাচ্ছে না।")
 
 async def prayer_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    try:
-
-        url = (
-            "https://api.aladhan.com/v1/timingsByCity"
-            "?city=Dhaka"
-            "&country=Bangladesh"
-            "&method=2"
-        )
-
-        response = requests.get(url).json()
-
-        timings = response["data"]["timings"]
-
-        msg = (
-            "🕌 আজকের নামাজের সময়\n\n"
-            f"🌅 ফজর: {timings['Fajr']}\n"
-            f"☀️ যোহর: {timings['Dhuhr']}\n"
-            f"🌇 আসর: {timings['Asr']}\n"
-            f"🌆 মাগরিব: {timings['Maghrib']}\n"
-            f"🌙 ইশা: {timings['Isha']}"
-        )
-
-        await update.message.reply_text(msg)
-
-    except Exception as e:
-
-        print(e)
-
-        await update.message.reply_text(
-            "নামাজের সময় আনা যাচ্ছে না।"
-        )
-
-# =========================
-# TEXT MESSAGE HANDLER
-# =========================
+    t = get_timings()
+    await update.message.reply_text(f"🕌 আজকের সময়সূচী:\nফজর: {t['Fajr']}\nযোহর: {t['Dhuhr']}\nআসর: {t['Asr']}\nমাগরিব: {t['Maghrib']}\nইশা: {t['Isha']}")
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
+    save_user(update.effective_chat.id) # ইউজার সেভ করা
     text = update.message.text.lower()
-
-    if "হাদিস" in text:
-        await send_hadith(update, context)
-
-    elif "আয়াত" in text or "কুরআন" in text:
-        await send_quran(update, context)
-
-    elif "নামাজ" in text or "সময়" in text:
-        await prayer_time(update, context)
-
-    else:
-
-        await update.message.reply_text(
-            "আমি ইসলামিক অ্যাসিস্ট্যান্ট 🤖\n\n"
-            "আপনি লিখতে পারেন:\n"
-            "• হাদিস\n"
-            "• আয়াত\n"
-            "• নামাজের সময়"
-        )
-
-# =========================
-# MAIN
-# =========================
+    if "হাদিস" in text: await send_hadith(update, context)
+    elif "আয়াত" in text or "কুরআন" in text: await send_quran(update, context)
+    elif "নামাজ" in text or "সময়" in text: await prayer_time(update, context)
+    else: await update.message.reply_text("আমি ইসলামিক অ্যাসিস্ট্যান্ট! হাদিস, আয়াত বা নামাজের সময় জানতে লিখুন।")
 
 if __name__ == "__main__":
-
     app = ApplicationBuilder().token(BOT_TOKEN).build()
+    
+    # শিডিউলার
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(prayer_reminder_job, 'interval', minutes=1)
+    scheduler.start()
 
-    # COMMANDS
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("hadith", send_hadith))
     app.add_handler(CommandHandler("quran", send_quran))
     app.add_handler(CommandHandler("time", prayer_time))
-
-    # TEXT MESSAGE
-    app.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            text_handler
-        )
-    )
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
     print("Bot is running...")
-
     app.run_polling()
