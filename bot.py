@@ -17,7 +17,10 @@ BOT_TOKEN = "8275711431:AAHETDjkmWxTSHI1lYsmePSYvR9gp0OIMNU"
 
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 
-# ইউজার আইডি সেভ করার ফাংশন
+# গ্লোবাল অ্যাপ ভেরিয়েবল
+app = None
+
+# ইউজার ম্যানেজমেন্ট
 def save_user(chat_id):
     try:
         users = get_all_users()
@@ -32,23 +35,6 @@ def get_all_users():
             return set(line.strip() for line in f)
     except: return set()
 
-# নামাজের সময় অটোমেটিক রিমাইন্ডার
-async def prayer_reminder_job(context: ContextTypes.DEFAULT_TYPE):
-    try:
-        timings = get_timings()
-        now = datetime.now().strftime("%H:%M")
-        prayer_names = {'Fajr': 'ফজর', 'Dhuhr': 'যোহর', 'Asr': 'আসর', 'Maghrib': 'মাগরিব', 'Isha': 'ইশা'}
-        
-        for p_en, p_bn in prayer_names.items():
-            if timings[p_en] == now:
-                users = get_all_users()
-                for chat_id in users:
-                    try:
-                        await context.bot.send_message(chat_id=chat_id, text=f"আসসালামু আলাইকুম! এখন {p_bn}-এর নামাজের সময়। 🕋")
-                    except: pass
-    except: pass
-
-# বাকি ফাংশনসমূহ
 def get_timings():
     url = "https://api.aladhan.com/v1/timingsByCity?city=Dhaka&country=Bangladesh&method=2"
     return requests.get(url).json()["data"]["timings"]
@@ -59,6 +45,23 @@ def load_hadiths():
             return json.load(f)
     except: return[{"text": "হাদিস লোড করা সম্ভব হয়নি।", "reference": "N/A"}]
 
+# অটোমেটিক রিমাইন্ডার ফাংশন
+async def prayer_reminder_job():
+    try:
+        timings = get_timings()
+        now = datetime.now().strftime("%H:%M")
+        prayer_names = {'Fajr': 'ফজর', 'Dhuhr': 'যোহর', 'Asr': 'আসর', 'Maghrib': 'মাগরিব', 'Isha': 'ইশা'}
+        
+        for p_en, p_bn in prayer_names.items():
+            if timings[p_en] == now:
+                users = get_all_users()
+                for chat_id in users:
+                    try:
+                        await app.bot.send_message(chat_id=chat_id, text=f"আসসালামু আলাইকুম! এখন {p_bn}-এর নামাজের সময়। 🕋")
+                    except: pass
+    except: pass
+
+# কমান্ড ও মেসেজ হ্যান্ডলার
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_user(update.effective_chat.id)
     await update.message.reply_text("আসসালামু আলাইকুম! আমি আপনার ইসলামিক অ্যাসিস্ট্যান্ট। আমি আপনাকে নিয়মিত নামাজের রিমাইন্ডার দেব।")
@@ -79,7 +82,7 @@ async def prayer_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"🕌 আজকের সময়সূচী:\nফজর: {t['Fajr']}\nযোহর: {t['Dhuhr']}\nআসর: {t['Asr']}\nমাগরিব: {t['Maghrib']}\nইশা: {t['Isha']}")
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    save_user(update.effective_chat.id) # ইউজার সেভ করা
+    save_user(update.effective_chat.id)
     text = update.message.text.lower()
     if "হাদিস" in text: await send_hadith(update, context)
     elif "আয়াত" in text or "কুরআন" in text: await send_quran(update, context)
@@ -89,7 +92,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     
-    # শিডিউলার
+    # শিডিউলার যোগ করা
     scheduler = AsyncIOScheduler()
     scheduler.add_job(prayer_reminder_job, 'interval', minutes=1)
     scheduler.start()
