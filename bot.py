@@ -80,24 +80,29 @@ def save_user(chat_id):
 # PRAYER API
 # =========================
 
+PRAYER_FILE = "prayer_times.json"
+
+
 def get_timings():
     try:
-        url = (
-            "https://api.aladhan.com/v1/timingsByCity"
-            "?city=Dhaka&country=Bangladesh&method=2"
-        )
-
-        response = requests.get(url, timeout=10)
-
-        data = response.json()
-
-        return data["data"]["timings"]
+        with open(PRAYER_FILE, "r") as f:
+            return json.load(f)
 
     except Exception as e:
-        logging.error(f"Prayer API Error: {e}")
+        logging.error(e)
 
-        return None
+        return {
+            "Fajr": "04:15",
+            "Dhuhr": "12:00",
+            "Asr": "15:30",
+            "Maghrib": "18:30",
+            "Isha": "19:45"
+        }
 
+
+def save_timings(data):
+    with open(PRAYER_FILE, "w") as f:
+        json.dump(data, f, indent=4)
 
 # =========================
 # HADITH LOADER
@@ -396,7 +401,52 @@ async def button_handler(
             f"নামাজ আদায় করে নিন।"
         )      
 
+# =========================
+# SET PRAYER TIME
+# =========================
 
+async def set_prayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text(
+            "আপনি Admin না।"
+        )
+        return
+
+    if len(context.args) != 1:
+
+        await update.message.reply_text(
+            "Usage:\n"
+            "/setfajr 04:20"
+        )
+        return
+
+    prayer_time = context.args[0]
+
+    timings = get_timings()
+
+    command = update.message.text.split()[0]
+
+    prayer_map = {
+        "/setfajr": "Fajr",
+        "/setdhuhr": "Dhuhr",
+        "/setasr": "Asr",
+        "/setmaghrib": "Maghrib",
+        "/setisha": "Isha"
+    }
+
+    prayer_name = prayer_map.get(command)
+
+    if not prayer_name:
+        return
+
+    timings[prayer_name] = prayer_time
+
+    save_timings(timings)
+
+    await update.message.reply_text(
+        f"✅ {prayer_name} এর সময় সেট হয়েছে {prayer_time}"
+    )
 # =========================
 # START
 # =========================
@@ -466,6 +516,12 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("ayah", send_quran))
     app.add_handler(CommandHandler("time", prayer_times))
     app.add_handler(CommandHandler("next", next_prayer))
+
+    app.add_handler(CommandHandler("setfajr", set_prayer))
+    app.add_handler(CommandHandler("setdhuhr", set_prayer))
+    app.add_handler(CommandHandler("setasr", set_prayer))
+    app.add_handler(CommandHandler("setmaghrib", set_prayer))
+    app.add_handler(CommandHandler("setisha", set_prayer))
 
     # Buttons
     app.add_handler(CallbackQueryHandler(button_handler))
