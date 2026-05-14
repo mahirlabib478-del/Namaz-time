@@ -107,10 +107,12 @@ def load_hadiths():
         with open("hadith.json", "r", encoding="utf-8") as f:
             return json.load(f)
 
-    except:
-        return [
+    except Exception as e:
+        logging.error(f"Error loading hadiths: {e}")
+        return[
             {
                 "text": "হাদিস লোড করা যায়নি।",
+                "explanation": "ডেটাবেস ফাইলটি খুঁজে পাওয়া যাচ্ছে না অথবা ফাইল ফরম্যাটে সমস্যা আছে।",
                 "reference": "N/A"
             }
         ]
@@ -162,10 +164,13 @@ async def send_hadith(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     h = random.choice(hadiths)
 
+    # এখন 'explanation' ফিল্ডটি যোগ করা হয়েছে
     await update.message.reply_text(
-        f"📚 হাদিস\n\n"
+        f"📚 **হাদিস**\n\n"
         f"{h['text']}\n\n"
-        f"📖 সূত্র: {h['reference']}"
+        f"💡 **ব্যাখ্যা:**\n{h.get('explanation', 'কোনো ব্যাখ্যা নেই।')}\n\n"
+        f"📖 **সূত্র:** {h['reference']}",
+        parse_mode='Markdown'
     )
 
 
