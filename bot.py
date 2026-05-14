@@ -29,7 +29,7 @@ from telegram.ext import (
 # CONFIG
 # =========================
 
-BOT_TOKEN = "8275711431:AAGcsGnUqgEo9AAHTtht_68eky-6313DBOE"
+BOT_TOKEN = "8275711431:AAEbB_fVHqqXcGkMlzwy4snT5sJWpYRzITc"
 
 TIMEZONE = ZoneInfo("Asia/Dhaka")
 # =========================
