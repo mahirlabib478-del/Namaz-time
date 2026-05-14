@@ -292,17 +292,7 @@ async def prayer_reminder_job(context: ContextTypes.DEFAULT_TYPE):
 
             users = get_all_users()
 
-            keyboard = [
-                [
-                    InlineKeyboardButton(
-                        "হ্যাঁ, পড়েছি 🤍",
-                        callback_data=f"done_{bn}"
-                    )
-                ]
-            ]
-
-            reply_markup = InlineKeyboardMarkup(keyboard)
-
+            # এখানে বাটন নাই
             for chat_id in users:
                 try:
                     await context.bot.send_message(
@@ -310,17 +300,16 @@ async def prayer_reminder_job(context: ContextTypes.DEFAULT_TYPE):
                         text=(
                             f"🕌 এখন {bn} নামাজের সময় হয়েছে।\n"
                             f"আল্লাহর দিকে ফিরে আসুন 🤍"
-                        ),
-                        reply_markup=reply_markup
+                        )
                     )
 
                 except Exception as e:
                     logging.error(e)
 
-            # follow-up after 20 mins
+            # ২০ মিনিট পরে follow up
             context.job_queue.run_once(
                 follow_up_job,
-                when=1200,
+                when=1800,
                 data=bn
             )
 
@@ -335,6 +324,22 @@ async def follow_up_job(context: ContextTypes.DEFAULT_TYPE):
 
     users = get_all_users()
 
+    # বাটন এখানে
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "হ্যাঁ, পড়েছি 🤍",
+                callback_data=f"done_{prayer_name}"
+            ),
+            InlineKeyboardButton(
+                "না, পড়া হয় নি 🥺",
+                callback_data=f"not_done_{prayer_name}"
+            )
+        ]
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
     for chat_id in users:
         try:
             await context.bot.send_message(
@@ -342,7 +347,8 @@ async def follow_up_job(context: ContextTypes.DEFAULT_TYPE):
                 text=(
                     f"🤍 আপনি কি {prayer_name} "
                     f"নামাজ আদায় করেছেন?"
-                )
+                ),
+                reply_markup=reply_markup
             )
 
         except Exception as e:
@@ -368,6 +374,17 @@ async def button_handler(
             "মাশাআল্লাহ 🤍\n"
             "আল্লাহ আপনার নামাজ কবুল করুন।"
         )
+  # নামাজ পড়ে নি
+    
+    elif query.data.startswith("not_done_"):
+
+        prayer_name = query.data.replace("not_done_", "")
+
+        await query.edit_message_text(
+            f"🤍 সমস্যা নেই।\n\n"
+            f"দয়া করে যত দ্রুত সম্ভব {prayer_name} "
+            f"নামাজ আদায় করে নিন।"
+        )      
 
 
 # =========================
