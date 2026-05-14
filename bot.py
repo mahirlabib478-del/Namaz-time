@@ -30,6 +30,7 @@ from telegram.ext import (
 # =========================
 
 BOT_TOKEN = "8275711431:AAEbB_fVHqqXcGkMlzwy4snT5sJWpYRzITc"
+ADMIN_ID = "8538304896"
 
 TIMEZONE = ZoneInfo("Asia/Dhaka")
 # =========================
