@@ -141,8 +141,8 @@ async def send_quran(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(
             f"📖 {text}\n\n"
-            f"🕌 সূরা: {surah}"
-            f"🔢 আয়াত: {ayah_number}"
+            f"🕌 সূরা: {surah}\n"
+            f"🔢 আয়াত: {ayah_number}" 
         )
 
     except Exception as e:
