@@ -134,7 +134,10 @@ async def send_quran(update: Update, context: ContextTypes.DEFAULT_TYPE):
         data = response.json()["data"][0]
 
         text = data["text"]
+        
         surah = data["surah"]["englishName"]
+        # আয়াত নম্বর
+        ayah_number = data["numberInSurah"]
 
         await update.message.reply_text(
             f"📖 {text}\n\n"
