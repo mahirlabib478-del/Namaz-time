@@ -324,7 +324,7 @@ async def prayer_reminder_job(context: ContextTypes.DEFAULT_TYPE):
             # ২০ মিনিট পরে follow up
             context.job_queue.run_once(
                 follow_up_job,
-                when=1800,
+                when=3600,
                 data=bn
             )
 
