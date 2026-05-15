@@ -284,6 +284,8 @@ async def next_prayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # REMINDER JOB
 # =========================
 
+last_sent = {}
+
 async def prayer_reminder_job(context: ContextTypes.DEFAULT_TYPE):
 
     timings = get_timings()
@@ -291,7 +293,9 @@ async def prayer_reminder_job(context: ContextTypes.DEFAULT_TYPE):
     if not timings:
         return
 
-    now = datetime.now(TIMEZONE).strftime("%H:%M")
+    now = datetime.now(TIMEZONE)
+
+    current_time = now.strftime("%H:%M")
 
     prayers = {
         "Fajr": "ফজর",
@@ -301,19 +305,34 @@ async def prayer_reminder_job(context: ContextTypes.DEFAULT_TYPE):
         "Isha": "ইশা"
     }
 
+    today = now.strftime("%Y-%m-%d")
+
     for eng, bn in prayers.items():
 
-        if timings[eng] == now:
+        prayer_time = timings.get(eng)
+
+        print("Current Time:", current_time)
+        print("Prayer Time:", prayer_time)
+    
+
+        # একই দিনে একবারের বেশি send করবে না
+        unique_key = f"{today}_{eng}"
+
+        if prayer_time == current_time:
+
+            if last_sent.get(unique_key):
+                continue
+
+            last_sent[unique_key] = True
 
             users = get_all_users()
 
-            # এখানে বাটন নাই
             for chat_id in users:
                 try:
                     await context.bot.send_message(
-                        chat_id=chat_id,
+                        chat_id=int(chat_id),
                         text=(
-                            f"🕌 এখন {bn} নামাজের সময় হয়েছে।\n"
+                            f"🕌 এখন {bn} নামাজের সময় হয়েছে\n\n"
                             f"আল্লাহর দিকে ফিরে আসুন 🤍"
                         )
                     )
@@ -321,7 +340,7 @@ async def prayer_reminder_job(context: ContextTypes.DEFAULT_TYPE):
                 except Exception as e:
                     logging.error(e)
 
-            # ২০ মিনিট পরে follow up
+            # 60 মিনিট পরে follow up
             context.job_queue.run_once(
                 follow_up_job,
                 when=3600,
@@ -537,8 +556,8 @@ if __name__ == "__main__":
     # Prayer checker every minute
     app.job_queue.run_repeating(
         prayer_reminder_job,
-        interval=60,
-        first=10
+        interval=30,
+        first=5
     )
 
     print("Bot running...")
