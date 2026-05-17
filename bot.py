@@ -125,40 +125,40 @@ def load_hadiths():
 
 
 # =========================
-# QURAN AYAH
+# QURAN AYAH (Updated)
 # =========================
 
 async def send_quran(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         ayah_no = random.randint(1, 6236)
 
+        # একই রিকোয়েস্টে আরবি ও বাংলা দুইটাই আনছি
         url = (
             f"https://api.alquran.cloud/v1/ayah/"
-            f"{ayah_no}/editions/bn.bengali"
+            f"{ayah_no}/editions/ar.uthmani,bn.bengali"
         )
 
         response = requests.get(url, timeout=10)
+        data = response.json()["data"]
 
-        data = response.json()["data"][0]
+        # data[0] = আরবি, data[1] = বাংলা (editions অর্ডার অনুযায়ী)
+        arabic_text = data[0]["text"]
+        bangla_text = data[1]["text"]
 
-        text = data["text"]
-        
-        surah = data["surah"]["englishName"]
-        # আয়াত নম্বর
-        ayah_number = data["numberInSurah"]
+        surah = data[0]["surah"]["englishName"]
+        ayah_number = data[0]["numberInSurah"]
 
         await update.message.reply_text(
-            f"📖 {text}\n\n"
+            f"﷽\n\n"
+            f"{arabic_text}\n\n"
+            f"📖 অর্থ:\n{bangla_text}\n\n"
             f"🕌 সূরা: {surah}\n"
-            f"🔢 আয়াত: {ayah_number}" 
+            f"🔢 আয়াত: {ayah_number}"
         )
 
     except Exception as e:
         logging.error(e)
-
-        await update.message.reply_text(
-            "আয়াত লোড করা যাচ্ছে না।"
-        )
+        await update.message.reply_text("আয়াত লোড করা যাচ্ছে না।")
 
 
 # =========================
